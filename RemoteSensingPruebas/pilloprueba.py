@@ -102,11 +102,61 @@ longitude = -99.49475  # Longitud de entrada
 
 date_str = '2024-10-06'  # Fecha de referencia (año-mes-día)
 
-# Crear imagen de humedad del suelo
-create_soil_moisture_static_image(latitude, longitude, date_str, buffer=1, dimensions=128)
-
 # Obtener datos estructurados de humedad del suelo
 soil_moisture_data = get_soil_moisture_data(latitude, longitude, date_str, buffer=1)
 print(soil_moisture_data)
 
+
+
+
+def get_ndvi(lat, lng, start_date, end_date):
+    # Definir la colección de imágenes NDVI
+    dataset = ee.ImageCollection('MODIS/061/MYD13A1') \
+        .filter(ee.Filter.date(start_date, end_date)) \
+        .select('NDVI')
+
+    # Definir la región de interés
+    point = ee.Geometry.Point([lng, lat])
+
+    # Reducir la colección para obtener el promedio NDVI
+    ndvi_mean = dataset.mean().reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=point,
+        scale=500,
+        maxPixels=1e9
+    )
+
+    return ndvi_mean.getInfo()
+
+# Ejemplo de uso
+latitude = 19.127083
+longitude = -99.49475
+start_date = '2023-09-01'
+end_date = '2023-09-30'
+ndvi_data = get_ndvi(latitude, longitude, start_date, end_date)
+print(f"NDVI Data: {ndvi_data}")
+
+
+def get_evapotranspiration(lat, lng, start_date, end_date):
+    # Definir la colección de imágenes de evapotranspiración
+    dataset = ee.ImageCollection('MODIS/061/MOD16A2GF') \
+        .filter(ee.Filter.date(start_date, end_date)) \
+        .select('ET')
+
+    # Definir la región de interés
+    point = ee.Geometry.Point([lng, lat])
+
+    # Reducir la colección para obtener el promedio ET
+    et_mean = dataset.mean().reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=point,
+        scale=500,
+        maxPixels=1e9
+    )
+
+    return et_mean.getInfo()
+
+# Ejemplo de uso
+evapotranspiration_data = get_evapotranspiration(latitude, longitude, start_date, end_date)
+print(f"Evapotranspiración Data: {evapotranspiration_data}")
 
