@@ -2,3 +2,6 @@ __pycache__
 venv
 venvtexca
 chinampa-437814-e8292ace82b4.json
+chinampa_service_account.json
+
+.env

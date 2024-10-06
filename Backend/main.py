@@ -8,10 +8,28 @@ import pandas as pd
 import datetime
 import asyncio
 
+import json
+import os
+from dotenv import load_dotenv
+import ee
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Cargar el JSON como string desde .env
+chinampa_json_str = os.getenv("chinampaJSON")
+
+# Convertir el string JSON a un diccionario de Python
+chinampa_json_dict = json.loads(chinampa_json_str)
+
+# Guardar el diccionario en un archivo temporal JSON
+with open('chinampa_service_account.json', 'w') as f:
+    json.dump(chinampa_json_dict, f)
+
 # Inicializar la API de Earth Engine
 try:
-    service_account = 'chinampaadmin@chinampa-437814.iam.gserviceaccount.com'
-    credentials = ee.ServiceAccountCredentials(service_account, 'chinampa-437814-e8292ace82b4.json')
+    service_account = chinampa_json_dict['client_email']
+    credentials = ee.ServiceAccountCredentials(service_account, 'chinampa_service_account.json')
     ee.Initialize(credentials)
 except Exception as e:
     ee.Authenticate()
@@ -38,7 +56,7 @@ class Location(BaseModel):
     longitude: float
 
 # API Key de OpenWeatherMap (asegúrate de mantenerla segura)
-OPENWEATHER_API_KEY = '72e74dde0bf1d5edd318eb3acfbd7350'
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 # Cargar el archivo CSV de evapotranspiración al iniciar la aplicación
 try:
