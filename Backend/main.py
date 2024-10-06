@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from google.auth import compute_engine
 
 from pydantic import BaseModel
 import requests
@@ -10,30 +11,21 @@ import asyncio
 
 import json
 import os
+import shutil  # Add this line to import shutil
 from dotenv import load_dotenv
-import ee
+from typing import List
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Cargar el JSON como string desde .env
-chinampa_json_str = os.getenv("chinampaJSON")
-
-# Convertir el string JSON a un diccionario de Python
-chinampa_json_dict = json.loads(chinampa_json_str)
-
-# Guardar el diccionario en un archivo temporal JSON
-with open('chinampa_service_account.json', 'w') as f:
-    json.dump(chinampa_json_dict, f)
 
 # Inicializar la API de Earth Engine
 try:
-    service_account = chinampa_json_dict['client_email']
-    credentials = ee.ServiceAccountCredentials(service_account, 'chinampa_service_account.json')
-    ee.Initialize(credentials)
+    ee.Initialize(project='ee-luisfernandordzdmz')
 except Exception as e:
     ee.Authenticate()
     ee.Initialize(project='ee-luisfernandordzdmz')
+
 
 app = FastAPI(
     title="Chinampa API",
@@ -49,6 +41,13 @@ app.add_middleware(
     allow_headers=["*"],  # Permitir todos los headers
 )
 
+
+# Directorio donde se almacenarán las imágenes
+IMAGE_DIR = "uploaded_images"
+MAX_IMAGES = 10  # Número máximo de imágenes permitidas
+
+# Crear el directorio si no existe
+os.makedirs(IMAGE_DIR, exist_ok=True)
 
 # Clase para recibir la ubicación
 class Location(BaseModel):
@@ -319,3 +318,72 @@ async def get_report(location: Location):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+def save_image(file: UploadFile):
+    """
+    Guarda la imagen en el directorio temporal.
+
+    Args:
+        file (UploadFile): La imagen subida por el usuario.
+
+    Returns:
+        str: La ruta de la imagen guardada.
+    """
+    # Generar la ruta de almacenamiento
+    file_path = os.path.join(IMAGE_DIR, file.filename)
+    
+    # Guardar la imagen en el directorio temporal
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return file_path
+
+def manage_image_queue():
+    """
+    Mantiene solo las últimas `MAX_IMAGES` imágenes en el directorio.
+    Si se supera el límite, elimina la imagen más antigua.
+    """
+    # Obtener la lista de imágenes en el directorio
+    images = sorted(os.listdir(IMAGE_DIR), key=lambda x: os.path.getctime(os.path.join(IMAGE_DIR, x)))
+    
+    # Si hay más de `MAX_IMAGES`, eliminar las más antiguas
+    if len(images) > MAX_IMAGES:
+        for image in images[:-MAX_IMAGES]:
+            os.remove(os.path.join(IMAGE_DIR, image))
+
+
+@app.post("/upload_image")
+async def upload_image(file: UploadFile = File(...)):
+    """
+    Endpoint para cargar una imagen y realizar la detección de enfermedades.
+    
+    Args:
+        file (UploadFile): La imagen a subir.
+
+    Returns:
+        dict: Resultado de la inferencia y detalles de la imagen.
+    """
+    try:
+        # Verificar que el archivo es una imagen
+        if file.content_type not in ["image/jpeg", "image/png"]:
+            raise HTTPException(status_code=400, detail="Solo se permiten imágenes JPEG o PNG.")
+
+        # Guardar la imagen
+        file_path = save_image(file)
+
+        # Gestionar la cola de imágenes
+        manage_image_queue()
+
+        # Realizar la "inferencia" (placeholder)
+        # Aquí deberías implementar tu lógica de inferencia real con el modelo de visión
+        disease_detected = "No disease detected"  # Placeholder
+
+        return {
+            "filename": file.filename,
+            "path": file_path,
+            "disease": disease_detected
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
