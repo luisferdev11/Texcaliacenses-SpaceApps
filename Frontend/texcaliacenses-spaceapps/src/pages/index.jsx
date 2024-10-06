@@ -70,7 +70,10 @@ function Index() {
     <>
       <div className="h-[100dvh] w-[100dvw] flex flex-col">
         {/* Header */}
-        <Header text="Asistente Agrícola" className="mx-auto md:max-w-4xl" />
+        <Header
+          text="Asistente Agrícola"
+          className="mx-auto md:max-w-4xl"
+        />
         <div className="h-[1.5px] bg-neutral-300"></div>
 
         {/* Main content */}
@@ -83,8 +86,7 @@ function Index() {
           <section className="w-full max-w-xs sm:max-w-sm md:max-w-lg mx-auto flex flex-col gap-3">
             <button
               className="w-full py-2 bg-black rounded-md text-white inline-flex items-center justify-center gap-2"
-              onClick={handleGetLocation}
-            >
+              onClick={handleGetLocation}>
               <LocationIcon className="size-3.5" />
               Usar mi ubicación actual
             </button>
