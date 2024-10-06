@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 
 import Header from "../components/common/header.jsx";
@@ -7,10 +7,17 @@ import Summary from "../components/reports/summary.jsx";
 import Actions from "../components/reports/actions.jsx";
 
 import MicIcon from "../components/icons/mic.jsx";
+import SendIcon from "../components/icons/send.jsx";
 
 export default function Report() {
   const [showChat, setShowChat] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState("");
   const { city, state, country } = useParams();
+
+  const containerRef = useRef(null);
+  const textareaRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   const action_list = [
     {
@@ -33,6 +40,58 @@ export default function Report() {
 
   const handleChat = () => {
     setShowChat(!showChat);
+  };
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputMessage]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleInputChange = (e) => {
+    setInputMessage(e.target.value);
+  };
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim() !== "") {
+      const newMessage = {
+        text: inputMessage,
+        sender: "user",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages([...messages, newMessage]);
+      setInputMessage("");
+
+      // Simulate AI response (replace with actual API call in production)
+      setTimeout(() => {
+        const aiResponse = {
+          text: `Respuesta de AI a: "${inputMessage}"`,
+          sender: "ai",
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prevMessages) => [...prevMessages, aiResponse]);
+      }, 1000);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   return (
@@ -59,7 +118,52 @@ export default function Report() {
             <div
               className={`${showChat ? "block" : "hidden"} h-full w-full px-2`}
             >
-              <section className="h-full w-full bg-black"></section>
+              <section
+                className="h-full w-full rounded-t-md flex flex-col"
+                ref={containerRef}
+              >
+                <div
+                  className="flex-1 overflow-y-auto p-4 px-8 w-full"
+                  ref={chatContainerRef}
+                >
+                  {messages.map((message, index) => (
+                    <div key={index} className={`mb-4 w-full`}>
+                      <div
+                        className={` w-full p-2 px-4 rounded-lg ${
+                          message.sender === "user"
+                            ? "bg-black text-white"
+                            : "bg-neutral-100 text-black"
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-t-md  p-4 pt-2 gap-5 bg-neutral-100 ">
+                  <div className="inline-flex w-full items-center gap-2">
+                    <textarea
+                      ref={textareaRef}
+                      value={inputMessage}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      rows="1"
+                      className="block p-2.5 w-full text-sm text-gray-900 bg-neutral-100 rounded-lg border-gray-300 resize-none focus:outline-none focus:border-transparent overflow-hidden"
+                      placeholder="Your message..."
+                      style={{ minHeight: "32px", maxHeight: "200px" }}
+                    ></textarea>
+                    <button
+                      className="bg-black p-3 rounded-full flex-shrink-0"
+                      onClick={handleSendMessage}
+                    >
+                      <SendIcon className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div className="flex flex-grow h-full flex-col">
