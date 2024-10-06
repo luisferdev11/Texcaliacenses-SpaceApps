@@ -5,6 +5,8 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
   const childrenArray = React.Children.toArray(children);
   const firstChild = childrenArray[0];
   const secondChild = childrenArray[1];
+  const thirdChild = childrenArray[2];
+  const fourthChild = childrenArray[3];
 
   const [size, setSize] = useState(initialSize);
   const [isDragging, setIsDragging] = useState(false);
@@ -17,7 +19,7 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsSmallScreen(window.innerWidth <= 990);
+      setIsSmallScreen(window.innerWidth <= 640);
     };
 
     handleResize(); // Call once to set initial state
@@ -34,8 +36,8 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
         const containerRect = containerRef.current.getBoundingClientRect();
         const containerWidth = containerRect.width;
         const mouseX = e.clientX - containerRect.left;
-        const minSize = 20; // 20% of container width
-        const maxSize = 80; // 80% of container width
+        const minSize = 40;
+        const maxSize = 70;
         const newSize = (mouseX / containerWidth) * 100;
         setSize(Math.max(minSize, Math.min(maxSize, newSize)));
       }
@@ -65,7 +67,7 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
 
   return (
     <div className="rounded-lg h-full base:gap-1 w-full">
-      <div ref={containerRef} className="w-full h-full flex flex-row">
+      <div ref={containerRef} className="hidden w-full h-full sm:flex flex-row">
         <div
           className={`h-full`}
           style={!isSmallScreen ? { width: `${size}%` } : {}}
@@ -74,7 +76,7 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
         </div>
         <div
           onMouseDown={handleMouseDown}
-          className="hidden md:block cursor-ew-resize h-full pb-4 rounded-full"
+          className="hidden sm:block cursor-ew-resize h-full pb-4 rounded-full"
         >
           <div className="flex flex-col justify-center h-full hover:bg-neutral-200 rounded-full">
             <div
@@ -85,6 +87,10 @@ const HorizontalSpliter = ({ children, initialSize = 50 }) => {
           </div>
         </div>
         <div className="h-full flex-1">{secondChild}</div>
+      </div>
+      <div className="w-full h-full sm:hidden block">
+        {firstChild}
+        {secondChild}
       </div>
     </div>
   );
