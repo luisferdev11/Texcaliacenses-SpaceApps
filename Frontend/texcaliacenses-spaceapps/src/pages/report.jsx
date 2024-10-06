@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+
+import React, { useEffect, useState } from "react";
+
 import { useParams } from "react-router-dom";
 
 import Header from "../components/common/header.jsx";
@@ -14,6 +16,62 @@ export default function Report() {
   const { city, state, country } = useParams();
   const [messages, setMessages] = useState([]);
 
+  // Estados para almacenar datos de la API y el estado de carga/error
+  const [temperature, setTemperature] = useState(null);
+  const [precipitation, setPrecipitation] = useState(null);
+  const [humidity, setHumidity] = useState(null);
+  const [ndvi, setNdvi] = useState(null);
+  const [evapotranspiration, setEvapotranspiration] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // URL de la API (por ahora, usando localhost)
+  const apiUrl = "http://localhost:8000/get_report";
+
+  // Coordenadas de ejemplo (puedes cambiarlas según tu lógica)
+  const location = {
+    latitude: 19.4326, // Ejemplo: Ciudad de México
+    longitude: -99.1332,
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(location),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Extraer los datos relevantes de la API
+        setTemperature(
+          data.weather_data.average_temperature_last_5days_centigrades
+        );
+        setPrecipitation(data.weather_data.total_precipitation_last_5days_mm);
+        setHumidity(data.soil_moisture_data.mean_soil_moisture * 100); // Convertir a porcentaje si es necesario
+        setNdvi(data.ndvi_data.mean_ndvi);
+        setEvapotranspiration(data.average_evapotranspiration);
+      } catch (err) {
+        console.error("Error al obtener datos de la API:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [apiUrl]);
+
+  // Lista de acciones (puedes modificarla según tus necesidades)
   const action_list = [
     {
       description:
@@ -33,9 +91,15 @@ export default function Report() {
     },
   ];
 
+
+  // Mostrar un mensaje de carga o error si es necesario
+  if (loading) return <p>Cargando datos...</p>;
+  if (error) return <p>Error: {error}</p>;
+
   const handleChat = () => {
     setShowChat(!showChat);
   };
+
 
   return (
     <>
@@ -80,7 +144,13 @@ export default function Report() {
               {/* ----------------------------Summary------------------- */}
               <section className="flex-grow relative w-full overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div className="absolute inset-0 pb-4 px-2 space-y-3">
-                  <Summary temperature={25} precipitation={60} humidity={80} />
+                  <Summary 
+                    temperature={temperature}
+                    precipitation={precipitation}
+                    humidity={humidity}
+                    ndvi={ndvi}
+                    evapotranspiration={evapotranspiration}
+                  />
                   <Actions action_list={action_list} />
                 </div>
               </section>
