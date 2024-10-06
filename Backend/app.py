@@ -10,7 +10,9 @@ import asyncio
 
 # Inicializar la API de Earth Engine
 try:
-    ee.Initialize(project='ee-luisfernandordzdmz')
+    service_account = 'chinampaadmin@chinampa-437814.iam.gserviceaccount.com'
+    credentials = ee.ServiceAccountCredentials(service_account, 'chinampa-437814-e8292ace82b4.json')
+    ee.Initialize(credentials)
 except Exception as e:
     ee.Authenticate()
     ee.Initialize(project='ee-luisfernandordzdmz')
