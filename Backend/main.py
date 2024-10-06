@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from google.auth import compute_engine
 
 from pydantic import BaseModel
 import requests
@@ -11,13 +10,15 @@ import asyncio
 
 import json
 import os
-import shutil  # Add this line to import shutil
+import shutil
 from dotenv import load_dotenv
 from typing import List
 
+# Importar la función de inferencia
+from inference import predict_image
+
 # Cargar variables de entorno
 load_dotenv()
-
 
 # Inicializar la API de Earth Engine
 try:
@@ -25,7 +26,6 @@ try:
 except Exception as e:
     ee.Authenticate()
     ee.Initialize(project='ee-luisfernandordzdmz')
-
 
 app = FastAPI(
     title="Chinampa API",
@@ -40,7 +40,6 @@ app.add_middleware(
     allow_methods=["*"],  # Permitir todos los métodos HTTP (GET, POST, etc.)
     allow_headers=["*"],  # Permitir todos los headers
 )
-
 
 # Directorio donde se almacenarán las imágenes
 IMAGE_DIR = "uploaded_images"
@@ -203,8 +202,6 @@ def get_closest_available_ndvi(lat, lng, start_date, end_date, max_retries=3):
     try:
         initialize_earth_engine()
         # Formatear fechas y restar un año por ahora por falta de datos
-        # current_start = datetime.strptime(start_date, '%Y-%m-%d')
-        # current_end = datetime.strptime(end_date, '%Y-%m-%d')
         current_start = datetime.datetime.strptime(start_date, '%Y-%m-%d') - datetime.timedelta(days=365)
         current_end = datetime.datetime.strptime(end_date, '%Y-%m-%d') - datetime.timedelta(days=365)
 
@@ -227,7 +224,7 @@ def get_closest_available_ndvi(lat, lng, start_date, end_date, max_retries=3):
 
             # Si se encuentra un valor válido, se devuelve
             if mean_ndvi is not None:
-                return {'mean_ndvi': mean_ndvi, 'reintentos para obtener nvdi cercano': retry}
+                return {'mean_ndvi': mean_ndvi, 'reintentos_para_obtener_ndvi_cercano': retry}
 
             # Si no se encuentra, busca hacia atrás (por ejemplo, 5 días antes)
             current_start -= datetime.timedelta(days=5)
@@ -269,6 +266,7 @@ def get_average_et(start_date, end_date):
     except Exception as e:
         return {'error': f'Error al obtener datos de evapotranspiración: {e}'}
 
+
 @app.post("/get_report")
 async def get_report(location: Location):
     """
@@ -298,7 +296,7 @@ async def get_report(location: Location):
         tasks = [
             loop.run_in_executor(None, get_weather_data, lat, lon, start_date, end_date),
             loop.run_in_executor(None, get_soil_moisture_data, lat, lon, date_str, 1),
-            loop.run_in_executor(None, get_closest_available_ndvi, lat, lon, start_date, end_date ),
+            loop.run_in_executor(None, get_closest_available_ndvi, lat, lon, start_date, end_date),
             loop.run_in_executor(None, get_average_et, start_date, end_date)
         ]
 
@@ -319,45 +317,11 @@ async def get_report(location: Location):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-def save_image(file: UploadFile):
-    """
-    Guarda la imagen en el directorio temporal.
-
-    Args:
-        file (UploadFile): La imagen subida por el usuario.
-
-    Returns:
-        str: La ruta de la imagen guardada.
-    """
-    # Generar la ruta de almacenamiento
-    file_path = os.path.join(IMAGE_DIR, file.filename)
-    
-    # Guardar la imagen en el directorio temporal
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return file_path
-
-def manage_image_queue():
-    """
-    Mantiene solo las últimas `MAX_IMAGES` imágenes en el directorio.
-    Si se supera el límite, elimina la imagen más antigua.
-    """
-    # Obtener la lista de imágenes en el directorio
-    images = sorted(os.listdir(IMAGE_DIR), key=lambda x: os.path.getctime(os.path.join(IMAGE_DIR, x)))
-    
-    # Si hay más de `MAX_IMAGES`, eliminar las más antiguas
-    if len(images) > MAX_IMAGES:
-        for image in images[:-MAX_IMAGES]:
-            os.remove(os.path.join(IMAGE_DIR, image))
-
-
-@app.post("/upload_image")
-async def upload_image(file: UploadFile = File(...)):
+@app.post("/classify_image")
+def classify_image(file: UploadFile = File(...)):
     """
     Endpoint para cargar una imagen y realizar la detección de enfermedades.
-    
+
     Args:
         file (UploadFile): La imagen a subir.
 
@@ -366,24 +330,57 @@ async def upload_image(file: UploadFile = File(...)):
     """
     try:
         # Verificar que el archivo es una imagen
-        if file.content_type not in ["image/jpeg", "image/png"]:
+        if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
             raise HTTPException(status_code=400, detail="Solo se permiten imágenes JPEG o PNG.")
 
+        print(f"Recibiendo imagen: {file.filename}")  # Logging
+        # Generar un nombre único para la imagen para evitar sobrescribir archivos con el mismo nombre
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"{timestamp}_{file.filename}"
+        file_path = os.path.join(IMAGE_DIR, filename)
+        print(f"Guardando imagen en: {file_path}")  # Logging
+
         # Guardar la imagen
-        file_path = save_image(file)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        print(f"Imagen guardada en: {file_path}")  # Logging
 
         # Gestionar la cola de imágenes
         manage_image_queue()
 
-        # Realizar la "inferencia" (placeholder)
-        # Aquí deberías implementar tu lógica de inferencia real con el modelo de visión
-        disease_detected = "No disease detected"  # Placeholder
+        # Realizar la inferencia
+        predicted_label, confidence = predict_image(file_path)
 
         return {
-            "filename": file.filename,
-            "path": file_path,
-            "disease": disease_detected
+            "filename": filename,
+            "disease": predicted_label,
+            "confidence": f"{confidence * 100:.2f}%"
         }
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
+        print(f"Error en /classify_image: {e}")  # Logging
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Función para gestionar la cola de imágenes
+def manage_image_queue():
+    """
+    Mantiene solo las últimas `MAX_IMAGES` imágenes en el directorio.
+    Si se supera el límite, elimina la imagen más antigua.
+    """
+    try:
+        # Obtener la lista de imágenes en el directorio con rutas completas
+        images = sorted(
+            [os.path.join(IMAGE_DIR, img) for img in os.listdir(IMAGE_DIR)],
+            key=lambda x: os.path.getctime(x)
+        )
+
+        # Si hay más de `MAX_IMAGES`, eliminar las más antiguas
+        if len(images) > MAX_IMAGES:
+            for image_path in images[:-MAX_IMAGES]:
+                os.remove(image_path)
+                print(f"Imagen eliminada: {image_path}")  # Logging
+    except Exception as e:
+        print(f"Error en manage_image_queue: {e}")  # Logging
