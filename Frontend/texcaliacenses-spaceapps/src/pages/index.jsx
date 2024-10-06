@@ -1,14 +1,48 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-import Header from "./components/common/header.jsx";
-import Footer from "./components/common/footer.jsx";
+import Header from "../components/common/header.jsx";
+import Footer from "../components/common/footer.jsx";
 
-import SearchIcon from "./components/icons/search.jsx";
-import LocationIcon from "./components/icons/location.jsx";
+import SearchIcon from "../components/icons/search.jsx";
+import LocationIcon from "../components/icons/location.jsx";
 
-function App() {
+function Index() {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  const getCityAndCountryOSM = async (latitude, longitude) => {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data && data.address) {
+      const city = data.address.county;
+      const state = data.address.state;
+      const country = data.address.country;
+      return { city, state, country };
+    } else {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (location) {
+      getCityAndCountryOSM(location.latitude, location.longitude).then(
+        (data) => {
+          if (data) {
+            const { city, state, country } = data;
+            navigate(`/report/${city}/${state}/${country}`);
+          } else {
+            setError("No se pudo obtener la ubicación.");
+            console.error("No se pudo obtener la ubicación.");
+          }
+        }
+      );
+    }
+  }, [location]);
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -18,7 +52,6 @@ function App() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
-          console.log("Ubicación obtenida:", location);
           setError(null);
         },
         (error) => {
@@ -36,6 +69,7 @@ function App() {
   return (
     <>
       <div className="h-[100dvh] w-[100dvw] flex flex-col">
+        {/* Header */}
         <Header text="Asistente Agrícola" className="mx-auto md:max-w-4xl" />
         <div className="h-[1.5px] bg-neutral-300"></div>
 
@@ -61,7 +95,7 @@ function App() {
               <div className="flex-1 h-[1px] bg-neutral-300"></div>
             </div>
 
-            <form className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 id="location"
@@ -73,7 +107,7 @@ function App() {
                 <SearchIcon className="size-3.5" />
                 Buscar
               </button>
-            </form>
+            </div>
           </section>
         </main>
 
@@ -83,4 +117,4 @@ function App() {
   );
 }
 
-export default App;
+export default Index;
