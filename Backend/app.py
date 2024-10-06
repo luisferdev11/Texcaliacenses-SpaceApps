@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 import requests
 import ee  # Earth Engine
@@ -18,6 +20,15 @@ app = FastAPI(
     description="API para proporcionar información agrícola basada en datos meteorológicos y satelitales",
     version="1.0.0"
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas las URLs, cambiar a lista específica de dominios en producción
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos HTTP (GET, POST, etc.)
+    allow_headers=["*"],  # Permitir todos los headers
+)
+
 
 # Clase para recibir la ubicación
 class Location(BaseModel):
