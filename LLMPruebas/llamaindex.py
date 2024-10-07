@@ -3,6 +3,10 @@ from llama_index.llms.openai import OpenAI
 import os
 import openai
 
+# dotenv
+from dotenv import load_dotenv
+load_dotenv()
+
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
 #abrimos base de conocimientos y preguntas ya establecidas

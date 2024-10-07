@@ -1,0 +1,8 @@
+
+the current temperatura centigrades is 13.11
+the current precipitation per mm 0.16
+the average temperature     the last 5 days in centigrades is 13.33
+and the total precipitation the las 5 days per mm is 29.2
+
+Soil mosture conditions, the mean soil moisture is 0.2777 that is 27 percent
+the average evapotranspiration is 218.90    

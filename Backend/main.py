@@ -17,6 +17,8 @@ from typing import List
 # Importar la función de inferencia
 from inference import predict_image
 
+from llm_recommendations import generate_recommendations
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -384,3 +386,30 @@ def manage_image_queue():
                 print(f"Imagen eliminada: {image_path}")  # Logging
     except Exception as e:
         print(f"Error en manage_image_queue: {e}")  # Logging
+
+
+@app.post("/get_recommendations")
+async def get_recommendations(location: Location):
+    """
+    Endpoint que genera recomendaciones basadas en el reporte agrícola.
+
+    Args:
+        location (Location): Objeto con latitud y longitud.
+
+    Returns:
+        dict: Diccionario con las recomendaciones.
+    """
+    try:
+        # Obtener el reporte utilizando el endpoint existente
+        report_data = await get_report(location)
+
+        # Generar las recomendaciones
+        recommendations = generate_recommendations(report_data)
+
+        # Formatear la respuesta para el frontend
+        action_list = [{"description": rec} for rec in recommendations]
+
+        return {"action_list": action_list}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
